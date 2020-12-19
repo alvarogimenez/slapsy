@@ -1,0 +1,18 @@
+# sbt
+lib_managed
+project/project
+target
+
+# Worksheets (Eclipse or IntelliJ)
+*.sc
+
+# IntelliJ
+.idea
+*.iml
+
+# Build Server Protocol
+.bsp
+
+#Other
+*.nc
+*.config
