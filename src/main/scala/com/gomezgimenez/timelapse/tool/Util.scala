@@ -2,6 +2,7 @@ package com.gomezgimenez.timelapse.tool
 
 import java.awt.image.BufferedImage
 
+import com.gomezgimenez.timelapse.tool.controller.Feature
 import org.bytedeco.javacpp.indexer.FloatIndexer
 import org.bytedeco.opencv.global.opencv_core._
 import org.bytedeco.opencv.opencv_core._
@@ -42,5 +43,15 @@ object Util {
     g.dispose()
 
     newImage
+  }
+
+  def massCenter(features: List[Feature]): Point2f = {
+    val points =
+      features
+        .collect { case Feature(_, Some(point), _) => point }
+    val sumPoint =
+    points
+      .foldLeft(new Point2f(0.0f, 0.0f))((acc, n) => new Point2f(acc.x + n.x, acc.y + n.y))
+    new Point2f(sumPoint.x / points.length, sumPoint.y / points.length)
   }
 }

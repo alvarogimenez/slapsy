@@ -5,9 +5,12 @@ import javafx.fxml.FXMLLoader
 import javafx.scene.Scene
 import javafx.scene.layout.BorderPane
 import javafx.stage.Stage
+import org.bytedeco.javacpp.Loader
+import org.bytedeco.opencv.opencv_java
 
 object Main {
   def main(args: Array[String]): Unit = {
+    Loader.load(classOf[opencv_java])
     Application.launch(classOf[Main], args:_*)
   }
 }

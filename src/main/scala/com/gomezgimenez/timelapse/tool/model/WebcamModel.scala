@@ -12,11 +12,9 @@ case class WebcamModel() {
   val features: SimpleListProperty[Feature] = new SimpleListProperty[Feature](FXCollections.observableArrayList[Feature])
   val availableCameras: SimpleListProperty[WebCamSource] = new SimpleListProperty[WebCamSource](FXCollections.observableArrayList[WebCamSource])
   val selectedCamera: SimpleObjectProperty[WebCamSource] = new SimpleObjectProperty[WebCamSource]()
-  val source_image: SimpleObjectProperty[Image] = new SimpleObjectProperty[Image]()
-  val reference_image: SimpleObjectProperty[Image] = new SimpleObjectProperty[Image]()
-  val feature: SimpleObjectProperty[Option[Point2f]] = new SimpleObjectProperty[Option[Point2f]](None)
-  val highFeature: SimpleObjectProperty[Option[Point2f]] = new SimpleObjectProperty[Option[Point2f]](None)
-  val lowFeature: SimpleObjectProperty[Option[Point2f]] = new SimpleObjectProperty[Option[Point2f]](None)
+  val sourceImage: SimpleObjectProperty[Image] = new SimpleObjectProperty[Image]()
+  val highMark: SimpleObjectProperty[Option[Point2f]] = new SimpleObjectProperty[Option[Point2f]](None)
+  val lowMark: SimpleObjectProperty[Option[Point2f]] = new SimpleObjectProperty[Option[Point2f]](None)
 
   val recordingBuffer: SimpleObjectProperty[List[BufferedImage]] = new SimpleObjectProperty[List[BufferedImage]](List.empty)
 }
