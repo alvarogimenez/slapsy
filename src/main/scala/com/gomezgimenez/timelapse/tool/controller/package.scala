@@ -1,39 +1,28 @@
 package com.gomezgimenez.timelapse.tool
 
-import java.awt.Color
 import java.awt.image.BufferedImage
 
+import org.bytedeco.opencv.opencv_core.Point2f
+
 package object controller {
-  case class ImageWithPosition(img: BufferedImage, p: Option[Point])
 
-  case class Point(x: Int, y: Int)
+  case class TrackingSnapshot(img: BufferedImage, hrImg: BufferedImage, features: List[Feature])
 
-  def findNearest(
-                           src: BufferedImage,
-                           dst: BufferedImage,
-                           feature: Point,
-                           boxSize: Int
-                         ): Option[Point] = {
-    val travelDistance = 10
-    ((feature.x - travelDistance) to (feature.x + travelDistance)).flatMap { px =>
-      ((feature.y - travelDistance) to (feature.y + travelDistance)).map { py =>
-        val diff =
-          (-boxSize to boxSize).flatMap { dx =>
-            (-boxSize to boxSize).map { dy =>
-              val srcPixel = new Color(src.getRGB(feature.x - dx, feature.y - dy))
-              val dstPixel = new Color(dst.getRGB(px - dx, py - dy))
-              Math.abs(
-                (srcPixel.getRed + srcPixel.getGreen + srcPixel.getBlue) / 3 -
-                  (dstPixel.getRed + dstPixel.getGreen + dstPixel.getBlue) / 3)
-            }
-          }.sum
-
-        Point(px, py) -> diff
-      }
-    }
-      .sortBy(_._2)
-      .collectFirst {
-        case (point, diff)  => point
-      }
+  case class WebCamSource(
+    name: String,
+    index: Int
+  ) {
+    override def toString(): String = name
   }
+
+  case class Feature(id: Int, point: Option[Point2f], size: Float) {
+    override def toString: String =
+      s"$id: (${point.map(_.x).getOrElse("-")},${point.map(_.y).getOrElse("-")})"
+
+    override def equals(obj: Any): Boolean = obj match {
+      case o: Feature => o.id == id
+      case _ => false
+    }
+  }
+
 }
