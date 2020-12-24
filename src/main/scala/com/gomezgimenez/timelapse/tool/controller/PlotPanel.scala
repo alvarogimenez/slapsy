@@ -6,6 +6,7 @@ import javafx.scene.image.Image
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.{Border, BorderStroke, BorderStrokeStyle, Pane}
 import javafx.scene.paint.Color
+import org.bytedeco.opencv.opencv_core.Point2f
 
 case class PlotPanel(model: WebcamModel) extends Pane {
 
@@ -21,9 +22,9 @@ case class PlotPanel(model: WebcamModel) extends Pane {
     val ratio = getImageFitRatio(img)
     val marginTop = (getHeight - img.getHeight*ratio)/2
     val marginLeft = (getWidth - img.getWidth*ratio)/2
-    val feature = Point(
-      x = ((e.getX - marginLeft)/ratio).toInt,
-      y = ((e.getY - marginTop)/ratio).toInt
+    val feature = new Point2f(
+      ((e.getX - marginLeft)/ratio).toFloat,
+      ((e.getY - marginTop)/ratio).toFloat
     )
     if(feature.x >= 0 && feature.x < img.getWidth &&
     feature.y >= 0 && feature.y < img.getHeight) {

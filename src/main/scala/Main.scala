@@ -1,5 +1,4 @@
 import com.gomezgimenez.timelapse.tool.controller
-import com.gomezgimenez.timelapse.tool.controller.MainWindowController
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.application.{Application, Platform}
 import javafx.fxml.FXMLLoader

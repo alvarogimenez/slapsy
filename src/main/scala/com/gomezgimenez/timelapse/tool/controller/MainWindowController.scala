@@ -4,6 +4,7 @@ import java.awt.Dimension
 import java.awt.image.BufferedImage
 
 import com.github.sarxos.webcam.Webcam
+import com.gomezgimenez.timelapse.tool.controller
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.application.Platform
 import javafx.concurrent.Task
@@ -12,6 +13,9 @@ import javafx.fxml.FXML
 import javafx.scene.control.Button
 import javafx.scene.image.Image
 import javafx.scene.layout.BorderPane
+import org.bytedeco.javacv.Java2DFrameUtils
+import org.bytedeco.opencv.opencv_core.{Mat, Point2f}
+import org.opencv.core.CvType
 
 import scala.collection.mutable
 
@@ -48,15 +52,54 @@ case class MainWindowController(model: WebcamModel) {
         val imageBuffer = mutable.Queue.empty[ImageWithPosition]
         var raisingEdge = true
 
-        model.feature.set(Some(Point(320, 240)))
+        model.feature.set(Some(new Point2f(320.0f, 240.0f)))
 
         while (!isCancelled) {
           val img: BufferedImage = cam.getImage
 
+          def putImgToMat(img: BufferedImage): Mat = {
+            val m = new Mat(img.getWidth(), img.getHeight(), CvType.CV_8S)
+            (0 until img.getWidth()).map { x =>
+              (0 until img.getHeight()).map { y =>
+                m.ptr(x,y).put((img.getRGB(x,y) & 0xFF).toByte)
+              }
+            }
+            m
+          }
+
           if (img != null) {
             imageBuffer.lastOption.foreach { lastImage =>
               if(model.feature.get.isDefined) {
-                model.feature.set(findNearest(lastImage.img, img, model.feature.get.get, 10))
+                import com.gomezgimenez.timelapse.tool.Util._
+                import org.bytedeco.opencv.global.opencv_imgproc._
+                import org.bytedeco.opencv.global.opencv_video._
+                import org.bytedeco.opencv.opencv_core._
+                val sourceImgMat = Java2DFrameUtils.toMat(lastImage.img)
+                val destImgMat = Java2DFrameUtils.toMat(img)
+                val source = new Mat()
+                val dest = new Mat()
+
+                cvtColor(sourceImgMat, source, COLOR_BGRA2GRAY)
+                cvtColor(destImgMat, dest, COLOR_BGRA2GRAY)
+
+                println(source.size().width() + "," + source.size().height() )
+                val trackingStatus = new Mat()
+                val trackedPointsNewUnfilteredMat = new Mat()
+                val err = new Mat()
+
+                calcOpticalFlowPyrLK(
+                  source,
+                  dest,
+                  toMatPoint2f(Seq(model.feature.get.get)),
+                  trackedPointsNewUnfilteredMat,
+                  trackingStatus,
+                  err
+                )
+
+                val trackedPointsNewUnfiltered = toPoint2fArray(trackedPointsNewUnfilteredMat)
+                trackedPointsNewUnfiltered.headOption.map { p =>
+                  model.feature.set(Some(p))
+                }
               }
             }
 
