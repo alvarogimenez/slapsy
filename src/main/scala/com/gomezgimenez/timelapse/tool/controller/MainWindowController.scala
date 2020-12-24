@@ -5,6 +5,7 @@ import java.awt.image.BufferedImage
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
+import com.gomezgimenez.timelapse.tool.component.TrackingPlotPanel
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.application.Platform
 import javafx.beans.value.{ChangeListener, ObservableValue}
@@ -27,7 +28,7 @@ case class MainWindowController(model: WebcamModel) {
   var currentTask: Task[Unit] = _
 
   def initialize(): Unit = {
-    main_panel.setCenter(PlotPanel(model))
+    main_panel.setCenter(TrackingPlotPanel(model))
 
     val availableCameras: List[WebCamSource] =
       Webcam.getWebcams.asScala
@@ -140,12 +141,14 @@ case class MainWindowController(model: WebcamModel) {
                 val dAvg = dSteps.sum / dSteps.length
                 if(raisingEdge && dAvg > 0) {
                   model.highMark.set(Some(Util.massCenter(imageBuffer.head.features)))
+                  model.recordingBuffer.set(model.recordingBuffer.get() :+ imageBuffer.head.hrImg)
                   raisingEdge = false
                 } else if(!raisingEdge && dAvg < 0) {
                   model.lowMark.set(Some(Util.massCenter(imageBuffer.head.features)))
                   raisingEdge = true
                 }
               }
+
               newFeatures.foreach { nf =>
                 model.features.get().setAll(nf.asJava)
               }
@@ -165,10 +168,6 @@ case class MainWindowController(model: WebcamModel) {
           e.printStackTrace()
       }
     }
-  }
-
-  private def clone(img: Image): Image = {
-    SwingFXUtils.toFXImage(SwingFXUtils.fromFXImage(img, null), null)
   }
 }
 
