@@ -1,10 +1,12 @@
 package com.gomezgimenez.timelapse.tool.controller
 
+import java.util.UUID
+
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.scene.canvas.Canvas
 import javafx.scene.image.Image
 import javafx.scene.input.MouseEvent
-import javafx.scene.layout.{Border, BorderStroke, BorderStrokeStyle, Pane}
+import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import org.bytedeco.opencv.opencv_core.Point2f
 
@@ -12,6 +14,7 @@ case class PlotPanel(model: WebcamModel) extends Pane {
 
   val canvas = new Canvas(getWidth, getHeight)
   getChildren.add(canvas)
+
   canvas.widthProperty().addListener(_ => draw())
   canvas.heightProperty().addListener(_ => draw())
 
@@ -22,13 +25,14 @@ case class PlotPanel(model: WebcamModel) extends Pane {
     val ratio = getImageFitRatio(img)
     val marginTop = (getHeight - img.getHeight*ratio)/2
     val marginLeft = (getWidth - img.getWidth*ratio)/2
-    val feature = new Point2f(
+    val point = new Point2f(
       ((e.getX - marginLeft)/ratio).toFloat,
       ((e.getY - marginTop)/ratio).toFloat
     )
-    if(feature.x >= 0 && feature.x < img.getWidth &&
-    feature.y >= 0 && feature.y < img.getHeight) {
-      model.feature.set(Some(feature))
+    if(point.x >= 0 && point.x < img.getWidth &&
+    point.y >= 0 && point.y < img.getHeight) {
+      model.feature.set(Some(point))
+      model.features.get().add(Feature(model.features.size + 1, point, 10.0f))
     } else {
       model.feature.set(None)
     }

@@ -11,7 +11,7 @@ import javafx.application.Platform
 import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
 import javafx.fxml.FXML
-import javafx.scene.control.Button
+import javafx.scene.control.{Button, ComboBox, ListView}
 import javafx.scene.image.Image
 import javafx.scene.layout.BorderPane
 import javax.imageio.ImageIO
@@ -19,24 +19,38 @@ import org.bytedeco.javacv.Java2DFrameUtils
 import org.bytedeco.opencv.opencv_core.Point2f
 
 import scala.collection.mutable
-
+import scala.jdk.CollectionConverters._
 
 case class MainWindowController(model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
+  @FXML var combo_camera: ComboBox[WebCamSource] = _
+  @FXML var feature_list: ListView[Feature] = _
 
   def initialize(): Unit = {
     main_panel.setCenter(PlotPanel(model))
 
-    val thread = new Thread(webCamTask(1))
+    val availableCameras: List[WebCamSource] =
+        Webcam.getWebcams.asScala
+          .zipWithIndex.map { case (w, index) => WebCamSource(w.getName, index) }
+            .toList
+    model.availableCameras.get().setAll(availableCameras.asJava)
+    combo_camera.itemsProperty().bindBidirectional(model.availableCameras)
+    combo_camera.valueProperty().bindBidirectional(model.selectedCamera)
+
+    feature_list.itemsProperty().bind(model.features)
+
+    model.selectedCamera.set(availableCameras.head)
+
+    val thread = new Thread(webCamTask())
     thread.setDaemon(true)
     thread.start()
   }
 
-  def webCamTask(index: Int): Task[Unit] = new Task[Unit]() {
+  def webCamTask(): Task[Unit] = new Task[Unit]() {
 
     override def call(): Unit = {
       try {
-        val cam = Webcam.getWebcams.get(index)
+        val cam = Webcam.getWebcams.get(model.selectedCamera.get().index)
         if (!cam.isOpen) {
           cam.setCustomViewSizes(Array(new Dimension(1920, 1080)))
           cam.setViewSize(new Dimension(1920, 1080))
@@ -54,7 +68,7 @@ case class MainWindowController(model: WebcamModel) {
           val hrImg: BufferedImage = cam.getImage
 
           if (hrImg != null) {
-            val img = Util.scaleFitWidth(hrImg, 640)
+            val img = Util.scaleFitWidth(hrImg, 1024)
             imageBuffer.lastOption.foreach { lastImage =>
               if(model.feature.get.isDefined) {
                 import com.gomezgimenez.timelapse.tool.Util._
@@ -101,12 +115,12 @@ case class MainWindowController(model: WebcamModel) {
                 f2 <- img2.p
               } yield {
                 val dy = f2.y - f1.y
-                if (raisingEdge && dy < 5) {
+                if (raisingEdge && dy < -1) {
                   model.highFeature.set(Some(f2))
                   model.recordingBuffer.set(model.recordingBuffer.get :+ img)
                   ImageIO.write(img2.hrImg, "jpg", new File(s"target/${System.currentTimeMillis()}.jpg"))
                   raisingEdge = false
-                } else if (!raisingEdge && dy > 5) {
+                } else if (!raisingEdge && dy > 0) {
                   raisingEdge = true
                   model.lowFeature.set(Some(f2))
                 }
