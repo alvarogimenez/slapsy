@@ -2,9 +2,10 @@ package com.gomezgimenez.timelapse.tool.controller
 
 import java.awt.Dimension
 import java.awt.image.BufferedImage
+import java.io.File
 
 import com.github.sarxos.webcam.Webcam
-import com.gomezgimenez.timelapse.tool.controller
+import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.application.Platform
 import javafx.concurrent.Task
@@ -13,23 +14,17 @@ import javafx.fxml.FXML
 import javafx.scene.control.Button
 import javafx.scene.image.Image
 import javafx.scene.layout.BorderPane
+import javax.imageio.ImageIO
 import org.bytedeco.javacv.Java2DFrameUtils
-import org.bytedeco.opencv.opencv_core.{Mat, Point2f}
-import org.opencv.core.CvType
+import org.bytedeco.opencv.opencv_core.Point2f
 
 import scala.collection.mutable
 
 
 case class MainWindowController(model: WebcamModel) {
-  @FXML var capture_button: Button = _
   @FXML var main_panel: BorderPane = _
 
   def initialize(): Unit = {
-
-    capture_button.setOnAction(_ => {
-      model.reference_image.set(clone(model.source_image.get))
-    })
-
     main_panel.setCenter(PlotPanel(model))
 
     val thread = new Thread(webCamTask(1))
@@ -43,7 +38,8 @@ case class MainWindowController(model: WebcamModel) {
       try {
         val cam = Webcam.getWebcams.get(index)
         if (!cam.isOpen) {
-          cam.setViewSize(new Dimension(640, 480))
+          cam.setCustomViewSizes(Array(new Dimension(1920, 1080)))
+          cam.setViewSize(new Dimension(1920, 1080))
           cam.open()
         }
 
@@ -55,19 +51,10 @@ case class MainWindowController(model: WebcamModel) {
         model.feature.set(Some(new Point2f(320.0f, 240.0f)))
 
         while (!isCancelled) {
-          val img: BufferedImage = cam.getImage
+          val hrImg: BufferedImage = cam.getImage
 
-          def putImgToMat(img: BufferedImage): Mat = {
-            val m = new Mat(img.getWidth(), img.getHeight(), CvType.CV_8S)
-            (0 until img.getWidth()).map { x =>
-              (0 until img.getHeight()).map { y =>
-                m.ptr(x,y).put((img.getRGB(x,y) & 0xFF).toByte)
-              }
-            }
-            m
-          }
-
-          if (img != null) {
+          if (hrImg != null) {
+            val img = Util.scaleFitWidth(hrImg, 640)
             imageBuffer.lastOption.foreach { lastImage =>
               if(model.feature.get.isDefined) {
                 import com.gomezgimenez.timelapse.tool.Util._
@@ -82,7 +69,6 @@ case class MainWindowController(model: WebcamModel) {
                 cvtColor(sourceImgMat, source, COLOR_BGRA2GRAY)
                 cvtColor(destImgMat, dest, COLOR_BGRA2GRAY)
 
-                println(source.size().width() + "," + source.size().height() )
                 val trackingStatus = new Mat()
                 val trackedPointsNewUnfilteredMat = new Mat()
                 val err = new Mat()
@@ -103,22 +89,26 @@ case class MainWindowController(model: WebcamModel) {
               }
             }
 
-            imageBuffer.enqueue(ImageWithPosition(img, model.feature.get))
+            imageBuffer.enqueue(ImageWithPosition(img, hrImg, model.feature.get))
             if(imageBuffer.size > maxBufferSize) {
               imageBuffer.dequeue()
             }
-            if(imageBuffer.size > derivativeStep) {
+            if (imageBuffer.size > derivativeStep) {
+              val img1 = imageBuffer.last
+              val img2 = imageBuffer.dropRight(derivativeStep).last
               for {
-                p1 <- imageBuffer.last.p
-                p2 <- imageBuffer.dropRight(derivativeStep).last.p
+                f1 <- img1.p
+                f2 <- img2.p
               } yield {
-                val dy = p2.y - p1.y
-                if(raisingEdge && dy <0) {
-                  model.highFeature.set(Some(p1))
+                val dy = f2.y - f1.y
+                if (raisingEdge && dy < 5) {
+                  model.highFeature.set(Some(f2))
+                  model.recordingBuffer.set(model.recordingBuffer.get :+ img)
+                  ImageIO.write(img2.hrImg, "jpg", new File(s"target/${System.currentTimeMillis()}.jpg"))
                   raisingEdge = false
-                } else if(!raisingEdge && dy > 0) {
+                } else if (!raisingEdge && dy > 5) {
                   raisingEdge = true
-                  model.lowFeature.set(Some(p1))
+                  model.lowFeature.set(Some(f2))
                 }
               }
             }

@@ -12,8 +12,8 @@
               <content>
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                      <children>
-                        <Button fx:id="capture_button" layoutX="14.0" layoutY="14.0" mnemonicParsing="false" text="Capture" />
-                     </children></AnchorPane>
+                     </children>
+                </AnchorPane>
               </content>
             </TitledPane>
          </children>

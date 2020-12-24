@@ -1,5 +1,7 @@
 package com.gomezgimenez.timelapse.tool
 
+import java.awt.image.BufferedImage
+
 import org.bytedeco.javacpp.indexer.FloatIndexer
 import org.bytedeco.opencv.global.opencv_core._
 import org.bytedeco.opencv.opencv_core._
@@ -28,5 +30,17 @@ object Util {
 
     for (i <- 0 until size) dest(i) = new Point2f(indexer.get(0, i, 0), indexer.get(0, i, 1))
     dest
+  }
+
+  def scaleFitWidth(img: BufferedImage, width: Int): BufferedImage = {
+    import java.awt.image.BufferedImage
+    val ratio = img.getHeight().toDouble / img.getWidth()
+    val newImage = new BufferedImage(width, (width * ratio).toInt, BufferedImage.TYPE_INT_RGB)
+
+    val g = newImage.createGraphics
+    g.drawImage(img, 0, 0, width, (width * ratio).toInt, null)
+    g.dispose()
+
+    newImage
   }
 }
