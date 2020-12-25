@@ -6,6 +6,8 @@ import org.bytedeco.opencv.opencv_core.Point2f
 
 package object controller {
 
+  case class BufferImage(img: BufferedImage, hrImg: BufferedImage)
+
   case class TrackingSnapshot(img: BufferedImage, hrImg: BufferedImage, features: List[Feature])
 
   case class WebCamSource(

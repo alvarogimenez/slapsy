@@ -3,7 +3,6 @@ package com.gomezgimenez.timelapse.tool.component
 import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.controller.Feature
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
-import javafx.event.EventType
 import javafx.scene.canvas.Canvas
 import javafx.scene.image.Image
 import javafx.scene.input.{MouseButton, MouseEvent}

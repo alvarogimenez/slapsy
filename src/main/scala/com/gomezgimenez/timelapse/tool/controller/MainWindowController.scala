@@ -5,30 +5,48 @@ import java.awt.image.BufferedImage
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
-import com.gomezgimenez.timelapse.tool.component.TrackingPlotPanel
+import com.gomezgimenez.timelapse.tool.component.{PlayerPlotPanel, TrackingPlotPanel}
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.application.Platform
 import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
 import javafx.fxml.FXML
-import javafx.scene.control.{ComboBox, ListView}
-import javafx.scene.image.Image
+import javafx.scene.control._
 import javafx.scene.layout.BorderPane
 import org.bytedeco.javacv.Java2DFrameUtils
+import javafx.scene.control.SpinnerValueFactory
+
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 case class MainWindowController(model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
+  @FXML var player_panel: BorderPane = _
   @FXML var combo_camera: ComboBox[WebCamSource] = _
   @FXML var feature_list: ListView[Feature] = _
+  @FXML var play_button: Button = _
+  @FXML var stop_button: Button = _
+  @FXML var play_slider: Slider = _
+  @FXML var current_frame_label: Label = _
+  @FXML var max_frame_count_label: Label = _
+  @FXML var fps_spinner: Spinner[Integer] = _
 
-  var currentTask: Task[Unit] = _
+  var currentTrackingTask: Task[Unit] = _
+  var currentPlayerTask: Task[Unit] = _
+  var playing: Boolean = false
 
   def initialize(): Unit = {
     main_panel.setCenter(TrackingPlotPanel(model))
+    player_panel.setCenter(PlayerPlotPanel(model))
+
+    play_button.setOnAction(_ => {
+      play()
+    })
+    stop_button.setOnAction(_ => {
+      stop()
+    })
 
     val availableCameras: List[WebCamSource] =
       Webcam.getWebcams.asScala
@@ -47,17 +65,75 @@ case class MainWindowController(model: WebcamModel) {
       }
     })
 
+    fps_spinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 20))
+    fps_spinner.getValueFactory.valueProperty().bindBidirectional(model.fpsObj)
+
+    play_slider.setMax(0)
+    play_slider.valueProperty().bindBidirectional(model.currentFrame)
+
+    model.recordingBuffer.addListener(new ChangeListener[List[BufferImage]] {
+      override def changed(observable: ObservableValue[_ <: List[BufferImage]], oldValue: List[BufferImage], newValue: List[BufferImage]): Unit = {
+        if(model.currentFrame.get == 0 && newValue.nonEmpty) {
+          model.currentFrame.set(1)
+          play_slider.setMin(1)
+        }
+        max_frame_count_label.setText(newValue.length.toString)
+        play_slider.setMax(newValue.length)
+      }
+    })
+
+    model.currentFrame.addListener(new ChangeListener[Number] {
+      override def changed(observable: ObservableValue[_ <: Number], oldValue: Number, newValue: Number): Unit = {
+        if(newValue.intValue() <= model.recordingBuffer.get().length && !playing) {
+          model.playerImage.set(SwingFXUtils.toFXImage(model.recordingBuffer.get()(newValue.intValue() - 1).img, null))
+        }
+      }
+    })
+
+    current_frame_label.textProperty().bind(model.currentFrame.asString())
+
     run()
   }
 
-  def run(): Unit = {
-    if(currentTask != null) {
-      currentTask.cancel()
+  def stop(): Unit = {
+    if(currentPlayerTask != null) {
+      currentPlayerTask.cancel()
+      playing = false
     }
-    currentTask = webCamTask()
-    val thread = new Thread(currentTask)
+  }
+
+  def play(): Unit = {
+    stop()
+    currentPlayerTask = playTask()
+    val thread = new Thread(currentPlayerTask)
     thread.setDaemon(true)
     thread.start()
+  }
+
+  def run(): Unit = {
+    if(currentTrackingTask != null) {
+      currentTrackingTask.cancel()
+    }
+    currentTrackingTask = webCamTask()
+    val thread = new Thread(currentTrackingTask)
+    thread.setDaemon(true)
+    thread.start()
+  }
+
+  def playTask(): Task[Unit] = new Task[Unit]() {
+    override def call(): Unit = {
+      playing = true
+      val frames = model.recordingBuffer.get()
+      val delay = 1000 / model.fps.get
+      frames.zipWithIndex.foreach { case (frame, index) =>
+        Platform.runLater(() => {
+          model.playerImage.set(SwingFXUtils.toFXImage(frame.img, null))
+          model.currentFrame.set(index + 1)
+        })
+        Thread.sleep(delay)
+      }
+      playing = false
+    }
   }
 
   def webCamTask(): Task[Unit] = new Task[Unit]() {
@@ -141,7 +217,7 @@ case class MainWindowController(model: WebcamModel) {
                 val dAvg = dSteps.sum / dSteps.length
                 if(raisingEdge && dAvg > 0) {
                   model.highMark.set(Some(Util.massCenter(imageBuffer.head.features)))
-                  model.recordingBuffer.set(model.recordingBuffer.get() :+ imageBuffer.head.hrImg)
+                  model.recordingBuffer.set(model.recordingBuffer.get() :+ BufferImage(imageBuffer.head.img, imageBuffer.head.hrImg))
                   raisingEdge = false
                 } else if(!raisingEdge && dAvg < 0) {
                   model.lowMark.set(Some(Util.massCenter(imageBuffer.head.features)))
