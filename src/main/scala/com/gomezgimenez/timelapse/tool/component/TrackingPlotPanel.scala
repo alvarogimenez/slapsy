@@ -6,7 +6,7 @@ import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.scene.canvas.Canvas
 import javafx.scene.image.Image
 import javafx.scene.input.{MouseButton, MouseEvent}
-import javafx.scene.layout.Pane
+import javafx.scene.layout.{Border, BorderStroke, BorderStrokeStyle, Pane}
 import javafx.scene.paint.Color
 import org.bytedeco.opencv.opencv_core.Point2f
 
@@ -78,6 +78,8 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
       g2d.save()
       g2d.scale(ratio, ratio)
       g2d.drawImage(img, marginLeft / ratio, marginTop / ratio)
+      g2d.setStroke(Color.GRAY)
+      g2d.strokeRect(marginLeft / ratio, marginTop / ratio, img.getWidth, img.getHeight)
 
       val heightTrackerSize = 15
 

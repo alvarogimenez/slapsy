@@ -1,16 +1,10 @@
 package com.gomezgimenez.timelapse.tool.component
 
-import com.gomezgimenez.timelapse.tool.Util
-import com.gomezgimenez.timelapse.tool.controller.Feature
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
 import javafx.scene.canvas.Canvas
 import javafx.scene.image.Image
-import javafx.scene.input.{MouseButton, MouseEvent}
 import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
-import org.bytedeco.opencv.opencv_core.Point2f
-
-import scala.jdk.CollectionConverters._
 
 case class PlayerPlotPanel(model: WebcamModel) extends Pane {
 
@@ -44,6 +38,8 @@ case class PlayerPlotPanel(model: WebcamModel) extends Pane {
       g2d.save()
       g2d.scale(ratio, ratio)
       g2d.drawImage(img, marginLeft / ratio, marginTop / ratio)
+      g2d.setStroke(Color.GRAY)
+      g2d.strokeRect(marginLeft / ratio, marginTop / ratio, img.getWidth, img.getHeight)
       g2d.restore()
     }
   }

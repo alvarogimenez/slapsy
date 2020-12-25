@@ -2,6 +2,7 @@ package com.gomezgimenez.timelapse.tool.controller
 
 import java.awt.Dimension
 import java.awt.image.BufferedImage
+import java.io.{BufferedWriter, File, FileWriter}
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
@@ -16,12 +17,14 @@ import javafx.scene.control._
 import javafx.scene.layout.BorderPane
 import org.bytedeco.javacv.Java2DFrameUtils
 import javafx.scene.control.SpinnerValueFactory
-
+import javafx.stage.FileChooser.ExtensionFilter
+import javafx.stage.{DirectoryChooser, Stage}
+import javax.imageio.ImageIO
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-case class MainWindowController(model: WebcamModel) {
+case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
   @FXML var player_panel: BorderPane = _
   @FXML var combo_camera: ComboBox[WebCamSource] = _
@@ -33,6 +36,10 @@ case class MainWindowController(model: WebcamModel) {
   @FXML var max_frame_count_label: Label = _
   @FXML var fps_spinner: Spinner[Integer] = _
 
+  @FXML var menu_file_export_frames: MenuItem = _
+  @FXML var menu_file_close: MenuItem = _
+  @FXML var menu_help_about: MenuItem = _
+
   var currentTrackingTask: Task[Unit] = _
   var currentPlayerTask: Task[Unit] = _
   var playing: Boolean = false
@@ -40,6 +47,22 @@ case class MainWindowController(model: WebcamModel) {
   def initialize(): Unit = {
     main_panel.setCenter(TrackingPlotPanel(model))
     player_panel.setCenter(PlayerPlotPanel(model))
+
+    menu_file_close.setOnAction(_ => {
+      Platform.exit()
+    })
+    menu_file_export_frames.setOnAction(_ => {
+      val file = new File(".")
+      val fileChooser = new DirectoryChooser
+      fileChooser.setInitialDirectory(file.getParentFile)
+      fileChooser.setTitle("Export all frames")
+      val selectedFile = fileChooser.showDialog(primaryStage)
+      if (selectedFile != null) {
+        model.recordingBuffer.get().zipWithIndex.foreach { case(frame, index)=>
+          ImageIO.write(frame.hrImg, "JPG", new File(selectedFile.getPath + "/" + s"Frame$index.jpg"))
+        }
+      }
+    })
 
     play_button.setOnAction(_ => {
       play()
@@ -99,6 +122,7 @@ case class MainWindowController(model: WebcamModel) {
     if(currentPlayerTask != null) {
       currentPlayerTask.cancel()
       playing = false
+      model.currentFrame.set(1)
     }
   }
 

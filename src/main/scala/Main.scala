@@ -22,7 +22,7 @@ class Main extends Application {
     Application.setUserAgentStylesheet(Application.STYLESHEET_MODENA)
 
     val loader = new FXMLLoader()
-    loader.setControllerFactory(_ => controller.MainWindowController(webcamModel))
+    loader.setControllerFactory(_ => controller.MainWindowController(primaryStage, webcamModel))
     loader.setLocation(Thread.currentThread.getContextClassLoader.getResource("ui/view/MainWindow.fxml"))
 
     val rootLayout = loader.load().asInstanceOf[BorderPane]
