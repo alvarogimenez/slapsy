@@ -2,7 +2,7 @@ package com.gomezgimenez.timelapse.tool.controller
 
 import java.awt.Dimension
 import java.awt.image.BufferedImage
-import java.io.{BufferedWriter, File, FileWriter}
+import java.io.File
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
@@ -13,13 +13,12 @@ import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.concurrent.Task
 import javafx.embed.swing.SwingFXUtils
 import javafx.fxml.FXML
-import javafx.scene.control._
+import javafx.scene.control.{SpinnerValueFactory, _}
 import javafx.scene.layout.BorderPane
-import org.bytedeco.javacv.Java2DFrameUtils
-import javafx.scene.control.SpinnerValueFactory
-import javafx.stage.FileChooser.ExtensionFilter
 import javafx.stage.{DirectoryChooser, Stage}
+import javafx.util.converter.NumberStringConverter
 import javax.imageio.ImageIO
+import org.bytedeco.javacv.Java2DFrameUtils
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -28,6 +27,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
   @FXML var player_panel: BorderPane = _
   @FXML var combo_camera: ComboBox[WebCamSource] = _
+  @FXML var combo_resolution: ComboBox[Resolution] = _
   @FXML var feature_list: ListView[Feature] = _
   @FXML var play_button: Button = _
   @FXML var stop_button: Button = _
@@ -35,6 +35,12 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var current_frame_label: Label = _
   @FXML var max_frame_count_label: Label = _
   @FXML var fps_spinner: Spinner[Integer] = _
+  @FXML var restart_capture_button: Button = _
+  @FXML var stop_capture_button: Button = _
+  @FXML var width_input: TextField = _
+  @FXML var height_input: TextField = _
+  @FXML var export_file_prefix_input: TextField = _
+  @FXML var export_file_type_combo: ComboBox[ExportFileType] = _
 
   @FXML var menu_file_export_frames: MenuItem = _
   @FXML var menu_file_close: MenuItem = _
@@ -52,16 +58,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       Platform.exit()
     })
     menu_file_export_frames.setOnAction(_ => {
-      val file = new File(".")
-      val fileChooser = new DirectoryChooser
-      fileChooser.setInitialDirectory(file.getParentFile)
-      fileChooser.setTitle("Export all frames")
-      val selectedFile = fileChooser.showDialog(primaryStage)
-      if (selectedFile != null) {
-        model.recordingBuffer.get().zipWithIndex.foreach { case(frame, index)=>
-          ImageIO.write(frame.hrImg, "JPG", new File(selectedFile.getPath + "/" + s"Frame$index.jpg"))
-        }
-      }
+      exportFrames()
     })
 
     play_button.setOnAction(_ => {
@@ -79,14 +76,32 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     combo_camera.itemsProperty().bindBidirectional(model.availableCameras)
     combo_camera.valueProperty().bindBidirectional(model.selectedCamera)
 
-    feature_list.itemsProperty().bind(model.features)
-
     model.selectedCamera.set(availableCameras.head)
-    model.selectedCamera.addListener(new ChangeListener[WebCamSource] {
-      override def changed(observable: ObservableValue[_ <: WebCamSource], oldValue: WebCamSource, newValue: WebCamSource): Unit = {
-        run()
-      }
+
+    model.availableResolutions.get().setAll(
+      List(
+        FixedResolution(640,480),
+        FixedResolution(800,600),
+        FixedResolution(1027,768),
+        FixedResolution(1920,1080),
+        CustomResolution
+      ).asJava)
+    model.selectedResolution.set(FixedResolution(1920, 1080))
+    combo_resolution.itemsProperty().bindBidirectional(model.availableResolutions)
+    combo_resolution.valueProperty().bindBidirectional(model.selectedResolution)
+    width_input.textProperty().bindBidirectional(model.customResolutionWidth, new NumberStringConverter("#"))
+    height_input.textProperty().bindBidirectional(model.customResolutionHeight, new NumberStringConverter("#"))
+    width_input.disableProperty().bind(combo_resolution.valueProperty().isEqualTo(CustomResolution).not())
+    height_input.disableProperty().bind(combo_resolution.valueProperty().isEqualTo(CustomResolution).not())
+
+    restart_capture_button.setOnAction(_ => {
+      runTracking()
     })
+    stop_capture_button.setOnAction(_ => {
+      stopTracking()
+    })
+
+    feature_list.itemsProperty().bind(model.features)
 
     fps_spinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 20))
     fps_spinner.getValueFactory.valueProperty().bindBidirectional(model.fpsObj)
@@ -115,7 +130,19 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
 
     current_frame_label.textProperty().bind(model.currentFrame.asString())
 
-    run()
+    model.availableExportFileTypes.get().setAll(
+      List(
+        ExportFileType("JPG", "JPG"),
+        ExportFileType("PNG", "PNG"),
+        ExportFileType("BMP", "BMP")
+      ).asJava)
+    model.selectedExportFileType.set(model.availableExportFileTypes.get.asScala.head)
+    export_file_type_combo.itemsProperty().bindBidirectional(model.availableExportFileTypes)
+    export_file_type_combo.valueProperty().bindBidirectional(model.selectedExportFileType)
+
+    export_file_prefix_input.textProperty().bindBidirectional(model.exportFilePrefix)
+
+    runTracking()
   }
 
   def stop(): Unit = {
@@ -134,10 +161,14 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     thread.start()
   }
 
-  def run(): Unit = {
+  def stopTracking(): Unit = {
     if(currentTrackingTask != null) {
       currentTrackingTask.cancel()
     }
+  }
+
+  def runTracking(): Unit = {
+    stopTracking()
     currentTrackingTask = webCamTask()
     val thread = new Thread(currentTrackingTask)
     thread.setDaemon(true)
@@ -166,8 +197,12 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       try {
         val cam = Webcam.getWebcams.get(model.selectedCamera.get().index)
         if (!cam.isOpen) {
-          cam.setCustomViewSizes(Array(new Dimension(1920, 1080)))
-          cam.setViewSize(new Dimension(1920, 1080))
+          val prefSize = model.selectedResolution.get() match {
+            case FixedResolution(w,h) => new Dimension(w,h)
+            case CustomResolution => new Dimension(model.customResolutionWidth.get, model.customResolutionHeight.get)
+          }
+          cam.setCustomViewSizes(Array(prefSize))
+          cam.setViewSize(prefSize)
           cam.open()
         }
 
@@ -266,6 +301,21 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       catch {
         case e: Exception =>
           e.printStackTrace()
+      }
+    }
+  }
+
+  def exportFrames(): Unit = {
+    val file = new File(".")
+    val fileChooser = new DirectoryChooser
+    fileChooser.setInitialDirectory(file.getParentFile)
+    fileChooser.setTitle("Export all frames")
+    val selectedFile = fileChooser.showDialog(primaryStage)
+    if (selectedFile != null) {
+      val fileType = model.selectedExportFileType.get.code
+      val filePrefix = model.exportFilePrefix.get
+      model.recordingBuffer.get().zipWithIndex.foreach { case(frame, index)=>
+        ImageIO.write(frame.hrImg, fileType, new File(selectedFile.getPath + "/" + filePrefix + s"$index.${fileType.toLowerCase}"))
       }
     }
   }

@@ -27,4 +27,16 @@ package object controller {
     }
   }
 
+  sealed trait Resolution
+  case object CustomResolution extends Resolution{
+    override def toString: String = "Custom..."
+  }
+  case class FixedResolution(width: Int, height: Int) extends Resolution {
+    override def toString: String = s"${width}x$height"
+  }
+
+  case class ExportFileType(label: String, code: String) {
+    override def toString: String = label
+  }
+
 }
