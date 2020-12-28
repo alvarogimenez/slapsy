@@ -26,6 +26,8 @@ import scala.jdk.CollectionConverters._
 case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
   @FXML var player_panel: BorderPane = _
+  @FXML var info_pane: TitledPane = _
+  @FXML var feature_size_spinner: Spinner[Integer] = _
   @FXML var combo_camera: ComboBox[WebCamSource] = _
   @FXML var combo_resolution: ComboBox[Resolution] = _
   @FXML var feature_list: ListView[Feature] = _
@@ -53,6 +55,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   def initialize(): Unit = {
     main_panel.setCenter(TrackingPlotPanel(model))
     player_panel.setCenter(PlayerPlotPanel(model))
+    info_pane
 
     menu_file_close.setOnAction(_ => {
       Platform.exit()
@@ -102,6 +105,9 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     })
 
     feature_list.itemsProperty().bind(model.features)
+
+    feature_size_spinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, 30))
+    feature_size_spinner.getValueFactory.valueProperty().bindBidirectional(model.featureSizeObj)
 
     fps_spinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 20))
     fps_spinner.getValueFactory.valueProperty().bindBidirectional(model.fpsObj)
@@ -237,6 +243,10 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
                     val trackedPointsNewUnfilteredMat = new Mat()
                     val err = new Mat()
 
+                    import org.bytedeco.opencv.opencv_core._
+                    import org.bytedeco.opencv.global.opencv_core._
+                    import org.bytedeco.opencv.global.opencv_video._
+
                     val newTrackedPoint =
                       feature.point.flatMap { p =>
                         calcOpticalFlowPyrLK(
@@ -245,7 +255,12 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
                           toMatPoint2f(Seq(p)),
                           trackedPointsNewUnfilteredMat,
                           trackingStatus,
-                          err
+                          err,
+                          new Size(feature.size.toInt, feature.size.toInt),
+                          5,
+                          new TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 20, 0.03),
+                          0,
+                          1e-4
                         )
 
                         toPoint2fArray(trackedPointsNewUnfilteredMat)
@@ -274,11 +289,13 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
                   }
 
                 val dAvg = dSteps.sum / dSteps.length
-                if(raisingEdge && dAvg > 0) {
+                if(raisingEdge && dAvg > 0.5) {
                   model.highMark.set(Some(Util.massCenter(imageBuffer.head.features)))
-                  model.recordingBuffer.set(model.recordingBuffer.get() :+ BufferImage(imageBuffer.head.img, imageBuffer.head.hrImg))
+                  (0 to 100).foreach { _ =>
+                    model.recordingBuffer.set(model.recordingBuffer.get() :+ BufferImage(imageBuffer.head.img, imageBuffer.head.hrImg))
+                  }
                   raisingEdge = false
-                } else if(!raisingEdge && dAvg < 0) {
+                } else if(!raisingEdge && dAvg < -0.5) {
                   model.lowMark.set(Some(Util.massCenter(imageBuffer.head.features)))
                   raisingEdge = true
                 }

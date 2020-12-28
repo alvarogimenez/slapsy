@@ -10,7 +10,6 @@ import org.bytedeco.opencv.opencv_java
 
 object Main {
   def main(args: Array[String]): Unit = {
-    Loader.load(classOf[opencv_java])
     Application.launch(classOf[Main], args:_*)
   }
 }

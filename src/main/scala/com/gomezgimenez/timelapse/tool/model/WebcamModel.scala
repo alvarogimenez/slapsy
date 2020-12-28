@@ -9,6 +9,8 @@ import org.bytedeco.opencv.opencv_core.Point2f
 case class WebcamModel() {
 
   val features: SimpleListProperty[Feature] = new SimpleListProperty[Feature](FXCollections.observableArrayList[Feature])
+  val featureSize: SimpleIntegerProperty = new SimpleIntegerProperty(30)
+  val featureSizeObj: ObjectProperty[Integer] = featureSize.asObject()
   val availableCameras: SimpleListProperty[WebCamSource] = new SimpleListProperty[WebCamSource](FXCollections.observableArrayList[WebCamSource])
   val selectedCamera: SimpleObjectProperty[WebCamSource] = new SimpleObjectProperty[WebCamSource]()
   val availableResolutions: SimpleListProperty[Resolution] = new SimpleListProperty[Resolution](FXCollections.observableArrayList[Resolution])

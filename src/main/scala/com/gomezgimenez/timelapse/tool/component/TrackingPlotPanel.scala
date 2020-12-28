@@ -37,7 +37,11 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
         point.y >= 0 &&
         point.y < img.getHeight
       ) {
-        model.features.get().add(Feature(model.features.get().asScala.map(_.id).toSet.maxOption.getOrElse(0) + 1, Some(point), 20.0f))
+        model.features.get().add(
+          Feature(
+            model.features.get().asScala.map(_.id).toSet.maxOption.getOrElse(0) + 1,
+            Some(point),
+            model.featureSize.get()))
       }
     case e:MouseEvent if e.getButton == MouseButton.SECONDARY =>
       val img = model.sourceImage.get
