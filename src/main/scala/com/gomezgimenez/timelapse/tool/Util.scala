@@ -45,13 +45,17 @@ object Util {
     newImage
   }
 
-  def massCenter(features: List[Feature]): Point2f = {
+  def massCenter(features: List[Feature]): Option[Point2f] = {
     val points =
       features
         .collect { case Feature(_, Some(point), _) => point }
     val sumPoint =
     points
       .foldLeft(new Point2f(0.0f, 0.0f))((acc, n) => new Point2f(acc.x + n.x, acc.y + n.y))
-    new Point2f(sumPoint.x / points.length, sumPoint.y / points.length)
+    if(points.nonEmpty) {
+      Some(new Point2f(sumPoint.x / points.length, sumPoint.y / points.length))
+    } else {
+      None
+    }
   }
 }

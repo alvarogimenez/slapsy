@@ -3,6 +3,7 @@ package com.gomezgimenez.timelapse.tool.controller
 import java.awt.Dimension
 import java.awt.image.BufferedImage
 import java.io.File
+import java.util.Locale
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
@@ -26,7 +27,6 @@ import scala.jdk.CollectionConverters._
 case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var main_panel: BorderPane = _
   @FXML var player_panel: BorderPane = _
-  @FXML var info_pane: TitledPane = _
   @FXML var feature_size_spinner: Spinner[Integer] = _
   @FXML var combo_camera: ComboBox[WebCamSource] = _
   @FXML var combo_resolution: ComboBox[Resolution] = _
@@ -43,6 +43,9 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var height_input: TextField = _
   @FXML var export_file_prefix_input: TextField = _
   @FXML var export_file_type_combo: ComboBox[ExportFileType] = _
+  @FXML var current_com_speed_label: Label = _
+  @FXML var max_com_speed_label: Label = _
+  @FXML var current_fps_label: Label = _
 
   @FXML var menu_file_export_frames: MenuItem = _
   @FXML var menu_file_close: MenuItem = _
@@ -55,7 +58,6 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   def initialize(): Unit = {
     main_panel.setCenter(TrackingPlotPanel(model))
     player_panel.setCenter(PlayerPlotPanel(model))
-    info_pane
 
     menu_file_close.setOnAction(_ => {
       Platform.exit()
@@ -215,6 +217,9 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
         val maxBufferSize = 5
         val imageBuffer = mutable.Queue.empty[TrackingSnapshot]
         var raisingEdge = true
+        var lastFrameTime = System.currentTimeMillis()
+        var maxComVx = 0.0
+        var maxComVy = 0.0
 
         while (!isCancelled) {
           val hrImg: BufferedImage = cam.getImage
@@ -224,6 +229,12 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
             img.flush()
 
             Platform.runLater(() => {
+              val now = System.currentTimeMillis()
+              val lasFrameProcessingTime = now - lastFrameTime
+              val fps = 1000.0 / lasFrameProcessingTime
+              current_fps_label.setText(fps.toInt.toString)
+
+              lastFrameTime = now
               val newFeatures =
                 imageBuffer.lastOption.map { lastImage =>
                   model.features.get.asScala.toList.map { feature =>
@@ -279,24 +290,44 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
               if (imageBuffer.size > maxBufferSize) {
                 imageBuffer.dequeue()
 
+                val lastCenter = imageBuffer.last
+                val prevCenter = imageBuffer.dropRight(1).last
+                val mcVelocity = for {
+                  mc1 <- Util.massCenter(lastCenter.features)
+                  mc2 <- Util.massCenter(prevCenter.features)
+                } yield {
+                  (Math.abs((mc1.x - mc2.x)*1000/lasFrameProcessingTime), Math.abs((mc1.y - mc2.y)*1000/lasFrameProcessingTime))
+                }
+
+                mcVelocity.foreach { case (vx, vy) =>
+                  maxComVx = Math.max(vx, maxComVx)
+                  maxComVy = Math.max(vy, maxComVy)
+                  current_com_speed_label.setText(
+                    s"(${String.format(Locale.US, "%.2f", vx)}," +
+                      s"${String.format(Locale.US, "%.2f", vy)})")
+                  max_com_speed_label.setText(
+                    s"(${String.format(Locale.US, "%.2f", maxComVx)}," +
+                      s"${String.format(Locale.US, "%.2f", maxComVy)})")
+                }
+
                 val dSteps =
                   (imageBuffer.toList match {
                     case a :: b :: tail => tail.foldLeft(List(a -> b)) {
                       case (acc, n) => acc :+ (acc.last._2 ->n)
                     }
                   }).map { case (t1, t2) =>
-                    Util.massCenter(t2.features).y - Util.massCenter(t1.features).y
+                    (Util.massCenter(t1.features), Util.massCenter(t2.features))
+                  }.collect { case (Some(mc1), Some(mc2)) =>
+                    mc2.y - mc1.y
                   }
 
                 val dAvg = dSteps.sum / dSteps.length
                 if(raisingEdge && dAvg > 0.5) {
-                  model.highMark.set(Some(Util.massCenter(imageBuffer.head.features)))
-                  (0 to 100).foreach { _ =>
-                    model.recordingBuffer.set(model.recordingBuffer.get() :+ BufferImage(imageBuffer.head.img, imageBuffer.head.hrImg))
-                  }
+                  model.highMark.set(Util.massCenter(imageBuffer.head.features))
+                  model.recordingBuffer.set(model.recordingBuffer.get() :+ BufferImage(imageBuffer.head.img, imageBuffer.head.hrImg))
                   raisingEdge = false
                 } else if(!raisingEdge && dAvg < -0.5) {
-                  model.lowMark.set(Some(Util.massCenter(imageBuffer.head.features)))
+                  model.lowMark.set(Util.massCenter(imageBuffer.head.features))
                   raisingEdge = true
                 }
               }

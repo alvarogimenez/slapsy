@@ -1,6 +1,7 @@
 package com.gomezgimenez.timelapse.tool
 
 import java.awt.image.BufferedImage
+import java.util.Locale
 
 import org.bytedeco.opencv.opencv_core.Point2f
 
@@ -19,7 +20,8 @@ package object controller {
 
   case class Feature(id: Int, point: Option[Point2f], size: Float) {
     override def toString: String =
-      s"$id: (${point.map(_.x).getOrElse("-")},${point.map(_.y).getOrElse("-")})"
+      s"$id: (${point.map(p => String.format(Locale.US, "%.2f", p.x)).getOrElse("-")}," +
+        s"${point.map(p => String.format(Locale.US, "%.2f", p.y)).getOrElse("-")})"
 
     override def equals(obj: Any): Boolean = obj match {
       case o: Feature => o.id == id

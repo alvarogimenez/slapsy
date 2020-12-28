@@ -88,11 +88,13 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
       val heightTrackerSize = 15
 
       val massCenter = Util.massCenter(model.features.get().asScala.toList)
-      g2d.setStroke(Color.CYAN.brighter())
-      g2d.strokeOval(
-        marginLeft / ratio + massCenter.x - heightTrackerSize/2,
-        marginTop / ratio + massCenter.y - heightTrackerSize/2,
-        heightTrackerSize, heightTrackerSize)
+      massCenter.foreach { m =>
+        g2d.setStroke(Color.CYAN.brighter())
+        g2d.strokeOval(
+          marginLeft / ratio + m.x - heightTrackerSize/2,
+          marginTop / ratio + m.y - heightTrackerSize/2,
+          heightTrackerSize, heightTrackerSize)
+      }
 
       model.features.get().asScala.foreach { feature =>
         feature.point.foreach { f =>
