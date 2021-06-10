@@ -1,18 +1,26 @@
 package com.gomezgimenez.timelapse.tool.component
 
+import java.awt.image.BufferedImage
+import java.util.UUID
+
 import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.controller.Feature
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
+import javafx.animation.AnimationTimer
+import javafx.embed.swing.SwingFXUtils
 import javafx.scene.canvas.Canvas
-import javafx.scene.image.Image
-import javafx.scene.input.{MouseButton, MouseEvent}
-import javafx.scene.layout.{Border, BorderStroke, BorderStrokeStyle, Pane}
+import javafx.scene.input.{ MouseButton, MouseEvent }
+import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import org.bytedeco.opencv.opencv_core.Point2f
 
-import scala.jdk.CollectionConverters._
-
 case class TrackingPlotPanel(model: WebcamModel) extends Pane {
+
+  class Timer extends AnimationTimer {
+    override def handle(now: Long): Unit = draw()
+  }
+
+  new Timer().start()
 
   val canvas = new Canvas(getWidth, getHeight)
   getChildren.add(canvas)
@@ -20,46 +28,50 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
   canvas.widthProperty().addListener(_ => draw())
   canvas.heightProperty().addListener(_ => draw())
 
-  model.sourceImage.addListener(_ => draw())
+  addEventHandler(
+    MouseEvent.MOUSE_CLICKED,
+    (e: MouseEvent) => {
 
-  addEventHandler(MouseEvent.MOUSE_CLICKED,(e: MouseEvent) => e match {
-    case e: MouseEvent if e.getButton == MouseButton.PRIMARY =>
-      val img = model.sourceImage.get
-      val ratio = getImageFitRatio(img)
-      val marginTop = (getHeight - img.getHeight * ratio) / 2
-      val marginLeft = (getWidth - img.getWidth * ratio) / 2
-      val point = new Point2f(
-        ((e.getX - marginLeft) / ratio).toFloat,
-        ((e.getY - marginTop) / ratio).toFloat
-      )
-      if (point.x >= 0 &&
-        point.x < img.getWidth &&
-        point.y >= 0 &&
-        point.y < img.getHeight
-      ) {
-        model.features.get().add(
-          Feature(
-            model.features.get().asScala.map(_.id).toSet.maxOption.getOrElse(0) + 1,
-            Some(point),
-            model.featureSize.get()))
+      val img      = model.tracker.get().currentImage.get()
+      val features = model.tracker.get().features.get()
+
+      e match {
+        case e: MouseEvent if e.getButton == MouseButton.PRIMARY =>
+          val ratio      = getImageFitRatio(img)
+          val marginTop  = (getHeight - img.getHeight * ratio) / 2
+          val marginLeft = (getWidth - img.getWidth * ratio) / 2
+          val point = new Point2f(
+            ((e.getX - marginLeft) / ratio).toFloat,
+            ((e.getY - marginTop) / ratio).toFloat
+          )
+          if (point.x >= 0 &&
+              point.x < img.getWidth &&
+              point.y >= 0 &&
+              point.y < img.getHeight) {
+            val feature = Feature(UUID.randomUUID().hashCode(), Some(point), model.featureSize.get())
+            model.tracker.get().addFeature(feature)
+          }
+        case e: MouseEvent if e.getButton == MouseButton.SECONDARY =>
+          val ratio      = getImageFitRatio(img)
+          val marginTop  = (getHeight - img.getHeight * ratio) / 2
+          val marginLeft = (getWidth - img.getWidth * ratio) / 2
+          val point = new Point2f(
+            ((e.getX - marginLeft) / ratio).toFloat,
+            ((e.getY - marginTop) / ratio).toFloat
+          )
+          val nonSelectedFeatures =
+            features.filterNot { f =>
+              f.point.exists(
+                p =>
+                  point.x > (p.x - f.size / 2) && point.x < (p.x + f.size / 2) &&
+                  point.y > (p.y - f.size / 2) && point.y < (p.y + f.size / 2))
+            }
+          nonSelectedFeatures.foreach { f =>
+            model.tracker.get().removeFeature(f.id)
+          }
       }
-    case e:MouseEvent if e.getButton == MouseButton.SECONDARY =>
-      val img = model.sourceImage.get
-      val ratio = getImageFitRatio(img)
-      val marginTop = (getHeight - img.getHeight * ratio) / 2
-      val marginLeft = (getWidth - img.getWidth * ratio) / 2
-      val point = new Point2f(
-        ((e.getX - marginLeft) / ratio).toFloat,
-        ((e.getY - marginTop) / ratio).toFloat
-      )
-      val nonSelectedFeatures =
-        model.features.get().asScala.filterNot { f =>
-        f.point.exists(p =>
-          point.x > (p.x - f.size/2) && point.x < (p.x + f.size/2) &&
-            point.y > (p.y - f.size/2) && point.y < (p.y + f.size/2))
-      }
-      model.features.get().setAll(nonSelectedFeatures.asJava)
-  })
+    }
+  )
 
   override def layoutChildren(): Unit = {
     super.layoutChildren()
@@ -73,58 +85,56 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
     val g2d = canvas.getGraphicsContext2D
     g2d.clearRect(0, 0, getWidth, getHeight)
 
-    if (model.sourceImage.get != null) {
-      val img = model.sourceImage.get
-      val ratio = getImageFitRatio(img)
-      val marginTop = (getHeight - img.getHeight * ratio) / 2
+    val img      = model.tracker.get().currentImage.get()
+    val features = model.tracker.get().features.get()
+    val highMark = model.tracker.get().highMark.get()
+    val lowMark  = model.tracker.get().lowMark.get()
+
+    if (img != null) {
+      val fxImg      = SwingFXUtils.toFXImage(img, null)
+      val ratio      = getImageFitRatio(img)
+      val marginTop  = (getHeight - img.getHeight * ratio) / 2
       val marginLeft = (getWidth - img.getWidth * ratio) / 2
 
       g2d.save()
       g2d.scale(ratio, ratio)
-      g2d.drawImage(img, marginLeft / ratio, marginTop / ratio)
+      g2d.drawImage(fxImg, marginLeft / ratio, marginTop / ratio)
       g2d.setStroke(Color.GRAY)
       g2d.strokeRect(marginLeft / ratio, marginTop / ratio, img.getWidth, img.getHeight)
 
       val heightTrackerSize = 15
 
-      val massCenter = Util.massCenter(model.features.get().asScala.toList)
+      val massCenter = Util.massCenter(features.toList)
       massCenter.foreach { m =>
         g2d.setStroke(Color.CYAN.brighter())
-        g2d.strokeOval(
-          marginLeft / ratio + m.x - heightTrackerSize/2,
-          marginTop / ratio + m.y - heightTrackerSize/2,
-          heightTrackerSize, heightTrackerSize)
+        g2d.strokeOval(marginLeft / ratio + m.x - heightTrackerSize / 2, marginTop / ratio + m.y - heightTrackerSize / 2, heightTrackerSize, heightTrackerSize)
       }
 
-      model.features.get().asScala.foreach { feature =>
+      features.foreach { feature =>
         feature.point.foreach { f =>
           val x = marginLeft / ratio + f.x
           val y = marginTop / ratio + f.y
           g2d.setStroke(Color.RED)
-          g2d.strokeRect(x - feature.size/2, y - feature.size/2, feature.size, feature.size)
-          g2d.strokeText(feature.id.toString, x - feature.size/2, y - feature.size/2 - 4)
+          g2d.strokeRect(x - feature.size / 2, y - feature.size / 2, feature.size, feature.size)
+          g2d.strokeText(feature.id.toString, x - feature.size / 2, y - feature.size / 2 - 4)
         }
       }
 
-      model.highMark.get.foreach { p =>
+      highMark.foreach { p =>
         g2d.setStroke(Color.BLUE.brighter())
-        g2d.strokeOval(marginLeft / ratio + p.x - heightTrackerSize/2,
-          marginTop / ratio + p.y - heightTrackerSize/2,
-          heightTrackerSize, heightTrackerSize)
+        g2d.strokeOval(marginLeft / ratio + p.x - heightTrackerSize / 2, marginTop / ratio + p.y - heightTrackerSize / 2, heightTrackerSize, heightTrackerSize)
       }
-      model.lowMark.get.foreach { p =>
+      lowMark.foreach { p =>
         g2d.setStroke(Color.GREEN.brighter())
-        g2d.strokeOval(marginLeft / ratio + p.x - heightTrackerSize/2,
-          marginTop / ratio + p.y - heightTrackerSize/2,
-          heightTrackerSize, heightTrackerSize)
+        g2d.strokeOval(marginLeft / ratio + p.x - heightTrackerSize / 2, marginTop / ratio + p.y - heightTrackerSize / 2, heightTrackerSize, heightTrackerSize)
       }
 
       g2d.restore()
     }
   }
 
-  def getImageFitRatio(img: Image): Double = {
-    val widthRatio = getWidth / img.getWidth
+  def getImageFitRatio(img: BufferedImage): Double = {
+    val widthRatio  = getWidth / img.getWidth
     val heightRatio = getHeight / img.getHeight
     Math.min(widthRatio, heightRatio)
   }
