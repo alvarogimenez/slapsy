@@ -6,17 +6,16 @@ import java.io.File
 
 import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
-import com.gomezgimenez.timelapse.tool.threads.{ Tracker, TrackerListener }
 import com.gomezgimenez.timelapse.tool.component.{ PlayerPlotPanel, TrackingPlotPanel }
-import com.gomezgimenez.timelapse.tool.model.{ ImgBufferRegister, WebcamModel }
+import com.gomezgimenez.timelapse.tool.model.{ CompressedImage, WebcamModel }
+import com.gomezgimenez.timelapse.tool.threads.{ Tracker, TrackerListener }
 import javafx.application.Platform
 import javafx.beans.value.{ ChangeListener, ObservableValue }
 import javafx.concurrent.Task
-import javafx.embed.swing.SwingFXUtils
 import javafx.fxml.FXML
 import javafx.scene.control.{ SpinnerValueFactory, _ }
 import javafx.scene.layout.BorderPane
-import javafx.stage.{ DirectoryChooser, Stage }
+import javafx.stage.Stage
 import javafx.util.converter.NumberStringConverter
 import javax.imageio.ImageIO
 
@@ -45,9 +44,8 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var max_com_speed_label: Label                       = _
   @FXML var current_fps_label: Label                         = _
 
-  @FXML var menu_file_export_frames: MenuItem = _
-  @FXML var menu_file_close: MenuItem         = _
-  @FXML var menu_help_about: MenuItem         = _
+  @FXML var menu_file_close: MenuItem = _
+  @FXML var menu_help_about: MenuItem = _
 
   var currentPlayerTask: Task[Unit] = _
   var playing: Boolean              = false
@@ -58,9 +56,6 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
 
     menu_file_close.setOnAction(_ => {
       Platform.exit()
-    })
-    menu_file_export_frames.setOnAction(_ => {
-      exportFrames()
     })
 
     play_button.setOnAction(_ => {
@@ -154,8 +149,8 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     play_slider.setMax(0)
     play_slider.valueProperty().bindBidirectional(model.currentFrame)
 
-    model.recordingBuffer.addListener(new ChangeListener[List[ImgBufferRegister]] {
-      override def changed(observable: ObservableValue[_ <: List[ImgBufferRegister]], oldValue: List[ImgBufferRegister], newValue: List[ImgBufferRegister]): Unit = {
+    model.recordingBuffer.addListener(new ChangeListener[List[CompressedImage]] {
+      override def changed(observable: ObservableValue[_ <: List[CompressedImage]], oldValue: List[CompressedImage], newValue: List[CompressedImage]): Unit = {
         if (model.currentFrame.get == 0 && newValue.nonEmpty) {
           model.currentFrame.set(1)
           play_slider.setMin(1)
@@ -168,7 +163,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     model.currentFrame.addListener(new ChangeListener[Number] {
       override def changed(observable: ObservableValue[_ <: Number], oldValue: Number, newValue: Number): Unit =
         if (newValue.intValue() <= model.recordingBuffer.get().length && !playing) {
-          model.playerImage.set(model.recordingBuffer.get()(newValue.intValue() - 1).img)
+          model.playerImage.set(Util.read(model.recordingBuffer.get()(newValue.intValue() - 1)))
         }
     })
 
@@ -238,7 +233,20 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
           })
         def capture(img: BufferedImage): Unit =
           Platform.runLater(() => {
-            model.recordingBuffer.set(model.recordingBuffer.get() :+ ImgBufferRegister(Util.scaleFitWidth(img, 640), img))
+            val fileType   = model.selectedExportFileType.get.code
+            val filePrefix = model.exportFilePrefix.get
+            val buffer     = model.recordingBuffer.get()
+            val frameNr    = buffer.size + 1
+            ImageIO.write(
+              img,
+              fileType,
+              new File(
+                "target" + "/" + filePrefix + s"$frameNr.${fileType.toLowerCase}"
+              )
+            )
+            model.recordingBuffer.set(
+              buffer :+
+              Util.compress(Util.scaleFitWidth(img, 640), 0.5f))
           })
       }
     )
@@ -256,34 +264,12 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       frames.zipWithIndex.foreach {
         case (frame, index) =>
           Platform.runLater(() => {
-            model.playerImage.set(frame.img)
+            model.playerImage.set(Util.read(frame))
             model.currentFrame.set(index + 1)
           })
           Thread.sleep(delay)
       }
       playing = false
-    }
-  }
-
-  def exportFrames(): Unit = {
-    val file        = new File(".")
-    val fileChooser = new DirectoryChooser
-    fileChooser.setInitialDirectory(file.getParentFile)
-    fileChooser.setTitle("Export all frames")
-    val selectedFile = fileChooser.showDialog(primaryStage)
-    if (selectedFile != null) {
-      val fileType   = model.selectedExportFileType.get.code
-      val filePrefix = model.exportFilePrefix.get
-      model.recordingBuffer.get().zipWithIndex.foreach {
-        case (frame, index) =>
-          ImageIO.write(
-            frame.hrImg,
-            fileType,
-            new File(
-              selectedFile.getPath + "/" + filePrefix + s"$index.${fileType.toLowerCase}"
-            )
-          )
-      }
     }
   }
 }
