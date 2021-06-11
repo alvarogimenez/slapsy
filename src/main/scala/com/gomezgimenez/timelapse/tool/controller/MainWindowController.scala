@@ -5,9 +5,10 @@ import java.awt.image.BufferedImage
 import java.io.File
 
 import com.github.sarxos.webcam.Webcam
+import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.threads.{ Tracker, TrackerListener }
 import com.gomezgimenez.timelapse.tool.component.{ PlayerPlotPanel, TrackingPlotPanel }
-import com.gomezgimenez.timelapse.tool.model.WebcamModel
+import com.gomezgimenez.timelapse.tool.model.{ ImgBufferRegister, WebcamModel }
 import javafx.application.Platform
 import javafx.beans.value.{ ChangeListener, ObservableValue }
 import javafx.concurrent.Task
@@ -124,22 +125,37 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     feature_list.itemsProperty().bind(model.features)
 
     feature_size_spinner.setValueFactory(
-      new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, 30)
+      new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 50)
     )
     feature_size_spinner.getValueFactory
       .valueProperty()
       .bindBidirectional(model.featureSizeObj)
 
+    feature_size_spinner
+      .focusedProperty()
+      .addListener((_, _, newValue) => {
+        if (!newValue) {
+          feature_size_spinner.increment(0); // won't change value, but will commit editor
+        }
+      })
+
     fps_spinner.setValueFactory(
       new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 20)
     )
     fps_spinner.getValueFactory.valueProperty().bindBidirectional(model.fpsObj)
+    fps_spinner
+      .focusedProperty()
+      .addListener((_, _, newValue) => {
+        if (!newValue) {
+          fps_spinner.increment(0); // won't change value, but will commit editor
+        }
+      })
 
     play_slider.setMax(0)
     play_slider.valueProperty().bindBidirectional(model.currentFrame)
 
-    model.recordingBuffer.addListener(new ChangeListener[List[BufferedImage]] {
-      override def changed(observable: ObservableValue[_ <: List[BufferedImage]], oldValue: List[BufferedImage], newValue: List[BufferedImage]): Unit = {
+    model.recordingBuffer.addListener(new ChangeListener[List[ImgBufferRegister]] {
+      override def changed(observable: ObservableValue[_ <: List[ImgBufferRegister]], oldValue: List[ImgBufferRegister], newValue: List[ImgBufferRegister]): Unit = {
         if (model.currentFrame.get == 0 && newValue.nonEmpty) {
           model.currentFrame.set(1)
           play_slider.setMin(1)
@@ -152,7 +168,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     model.currentFrame.addListener(new ChangeListener[Number] {
       override def changed(observable: ObservableValue[_ <: Number], oldValue: Number, newValue: Number): Unit =
         if (newValue.intValue() <= model.recordingBuffer.get().length && !playing) {
-          model.playerImage.set(model.recordingBuffer.get()(newValue.intValue() - 1))
+          model.playerImage.set(model.recordingBuffer.get()(newValue.intValue() - 1).img)
         }
     })
 
@@ -222,7 +238,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
           })
         def capture(img: BufferedImage): Unit =
           Platform.runLater(() => {
-            model.recordingBuffer.set(model.recordingBuffer.get() :+ img)
+            model.recordingBuffer.set(model.recordingBuffer.get() :+ ImgBufferRegister(Util.scaleFitWidth(img, 640), img))
           })
       }
     )
@@ -240,7 +256,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       frames.zipWithIndex.foreach {
         case (frame, index) =>
           Platform.runLater(() => {
-            model.playerImage.set(frame)
+            model.playerImage.set(frame.img)
             model.currentFrame.set(index + 1)
           })
           Thread.sleep(delay)
@@ -261,7 +277,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       model.recordingBuffer.get().zipWithIndex.foreach {
         case (frame, index) =>
           ImageIO.write(
-            frame,
+            frame.hrImg,
             fileType,
             new File(
               selectedFile.getPath + "/" + filePrefix + s"$index.${fileType.toLowerCase}"

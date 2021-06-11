@@ -6,7 +6,7 @@ ThisBuild / organization := "com.gomezgimenez"
 
 lazy val `sla-printer-timelapse-tool` = (project in file("."))
   .settings(
-    mainClass in(Compile, run) := Some("Main"),
+    mainClass in (Compile, run) := Some("Main"),
     mainClass in assembly := Some("Main"),
     libraryDependencies ++= List(
       json4s,
@@ -16,6 +16,6 @@ lazy val `sla-printer-timelapse-tool` = (project in file("."))
     ) ++ javaCvLibs,
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-      case _ => MergeStrategy.first
+      case _                                   => MergeStrategy.first
     }
   )

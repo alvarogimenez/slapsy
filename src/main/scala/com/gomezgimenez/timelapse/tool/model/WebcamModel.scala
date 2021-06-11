@@ -25,9 +25,9 @@ case class WebcamModel() {
   val customResolutionWidth: SimpleIntegerProperty                 = new SimpleIntegerProperty(1920)
   val customResolutionHeight: SimpleIntegerProperty                = new SimpleIntegerProperty(1080)
 
-  val playerImage: SimpleObjectProperty[BufferedImage]           = new SimpleObjectProperty[BufferedImage]()
-  val recordingBuffer: SimpleObjectProperty[List[BufferedImage]] = new SimpleObjectProperty[List[BufferedImage]](List.empty)
-  val currentFrame: SimpleIntegerProperty                        = new SimpleIntegerProperty(0)
-  val fps: SimpleIntegerProperty                                 = new SimpleIntegerProperty(30)
-  val fpsObj: ObjectProperty[Integer]                            = fps.asObject()
+  val playerImage: SimpleObjectProperty[BufferedImage]               = new SimpleObjectProperty[BufferedImage]()
+  val recordingBuffer: SimpleObjectProperty[List[ImgBufferRegister]] = new SimpleObjectProperty[List[ImgBufferRegister]](List.empty)
+  val currentFrame: SimpleIntegerProperty                            = new SimpleIntegerProperty(0)
+  val fps: SimpleIntegerProperty                                     = new SimpleIntegerProperty(0)
+  val fpsObj: ObjectProperty[Integer]                                = fps.asObject()
 }

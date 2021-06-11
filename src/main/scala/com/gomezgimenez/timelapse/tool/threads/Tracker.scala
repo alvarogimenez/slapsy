@@ -14,6 +14,9 @@ import org.bytedeco.javacv.Java2DFrameUtils
 import org.bytedeco.opencv.opencv_core.Point2f
 
 import scala.collection.mutable
+import scala.concurrent.{ Await, Future }
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationListener: TrackerListener) extends Task[Unit] { self =>
 
@@ -21,21 +24,22 @@ class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationL
 
   val currentImage: AtomicReference[BufferedImage] = new AtomicReference[BufferedImage]()
   val currentFps: AtomicInteger                    = new AtomicInteger()
-  val features: AtomicReference[Set[Feature]]      = new AtomicReference[Set[Feature]](Set.empty)
+  val features: AtomicReference[List[Feature]]     = new AtomicReference[List[Feature]](List.empty)
   val centerOfMassSpeed: AtomicReference[Speed]    = new AtomicReference[Speed]()
   val centerOfMassMaxSpeed: AtomicReference[Speed] = new AtomicReference[Speed]()
   val highMark: AtomicReference[Option[Point2f]]   = new AtomicReference[Option[Point2f]](None)
   val lowMark: AtomicReference[Option[Point2f]]    = new AtomicReference[Option[Point2f]](None)
 
   def addFeature(f: Feature): Unit =
-    features.getAndUpdate(_ + f)
+    features.getAndUpdate(_ :+ f)
 
   def removeFeature(id: Int): Unit =
     features.getAndUpdate(_.filterNot(_.id == id))
 
   override def call(): Unit = {
+    val cam = Webcam.getWebcams.get(camera.index)
+
     try {
-      val cam = Webcam.getWebcams.get(camera.index)
       if (!cam.isOpen) {
         cam.setCustomViewSizes(Array(prefSize))
         cam.setViewSize(prefSize)
@@ -51,16 +55,18 @@ class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationL
 
       while (!isCancelled) {
         val hrImg: BufferedImage = cam.getImage
-        currentImage.set(hrImg)
 
         if (hrImg != null) {
+          currentImage.set(hrImg)
+
           val now              = System.currentTimeMillis()
           val elapsedFrameTime = now - lastFrameTime
           val minFrameTime     = (1000.0 / fps).toLong
-          if (elapsedFrameTime < minFrameTime) {
-            Thread.sleep(minFrameTime - elapsedFrameTime)
+          val remainingTime    = Math.max(0, minFrameTime - elapsedFrameTime)
+          if (remainingTime > 0) {
+            Thread.sleep(remainingTime)
           }
-          val lasFrameProcessingTime = System.currentTimeMillis() - lastFrameTime
+          val lasFrameProcessingTime = now + remainingTime - lastFrameTime
           val calculatedCurrentFps   = 1000.0 / lasFrameProcessingTime
 
           currentFps.set(calculatedCurrentFps.toInt)
@@ -69,65 +75,72 @@ class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationL
 
           val newFeatures =
             imageBuffer.lastOption.map { lastImage =>
-              features.get.map { feature =>
-                import com.gomezgimenez.timelapse.tool.Util._
-                import org.bytedeco.opencv.global.opencv_imgproc._
-                import org.bytedeco.opencv.opencv_core._
-                val sourceImgMat = Java2DFrameUtils.toMat(lastImage.img)
-                val destImgMat   = Java2DFrameUtils.toMat(hrImg)
-                val source       = new Mat()
-                val dest         = new Mat()
+              Await.result(
+                Future.sequence(features.get.map { feature =>
+                  import com.gomezgimenez.timelapse.tool.Util._
+                  import org.bytedeco.opencv.global.opencv_imgproc._
+                  import org.bytedeco.opencv.opencv_core._
 
-                cvtColor(sourceImgMat, source, COLOR_BGRA2GRAY)
-                cvtColor(destImgMat, dest, COLOR_BGRA2GRAY)
+                  Future {
+                    val sourceImgMat = Java2DFrameUtils.toMat(lastImage.img)
+                    val destImgMat   = Java2DFrameUtils.toMat(hrImg)
+                    val source       = new Mat()
+                    val dest         = new Mat()
 
-                val trackingStatus                = new Mat()
-                val trackedPointsNewUnfilteredMat = new Mat()
-                val err                           = new Mat()
+                    cvtColor(sourceImgMat, source, COLOR_BGRA2GRAY)
+                    cvtColor(destImgMat, dest, COLOR_BGRA2GRAY)
 
-                import org.bytedeco.opencv.global.opencv_core._
-                import org.bytedeco.opencv.global.opencv_video._
-                import org.bytedeco.opencv.opencv_core._
+                    val trackingStatus                = new Mat()
+                    val trackedPointsNewUnfilteredMat = new Mat()
+                    val err                           = new Mat()
 
-                val newTrackedPoint =
-                  feature.point
-                    .flatMap { p =>
-                      calcOpticalFlowPyrLK(
-                        source,
-                        dest,
-                        toMatPoint2f(Seq(p)),
-                        trackedPointsNewUnfilteredMat,
-                        trackingStatus,
-                        err,
-                        new Size(
-                          feature.size.toInt,
-                          feature.size.toInt
-                        ),
-                        5,
-                        new TermCriteria(
-                          CV_TERMCRIT_ITER | CV_TERMCRIT_EPS,
-                          20,
-                          0.03
-                        ),
-                        0,
-                        1e-4
-                      )
+                    import org.bytedeco.opencv.global.opencv_core._
+                    import org.bytedeco.opencv.global.opencv_video._
+                    import org.bytedeco.opencv.opencv_core._
 
-                      toPoint2fArray(trackedPointsNewUnfilteredMat).headOption
-                        .flatMap {
-                          case p if p.x > 0 && p.x < hrImg.getWidth && p.y > 0 && p.y < hrImg.getHeight =>
-                            Some(p)
-                          case _ => None
+                    val newTrackedPoint =
+                      feature.point
+                        .flatMap { p =>
+                          calcOpticalFlowPyrLK(
+                            source,
+                            dest,
+                            toMatPoint2f(Seq(p)),
+                            trackedPointsNewUnfilteredMat,
+                            trackingStatus,
+                            err,
+                            new Size(
+                              feature.size.toInt,
+                              feature.size.toInt
+                            ),
+                            5,
+                            new TermCriteria(
+                              CV_TERMCRIT_ITER | CV_TERMCRIT_EPS,
+                              20,
+                              0.03
+                            ),
+                            0,
+                            1e-4
+                          )
+
+                          toPoint2fArray(trackedPointsNewUnfilteredMat).headOption
+                            .flatMap {
+                              case p if p.x > 0 && p.x < hrImg.getWidth && p.y > 0 && p.y < hrImg.getHeight =>
+                                Some(p)
+                              case _ => None
+                            }
                         }
-                    }
 
-                feature.copy(point = newTrackedPoint)
-              }
+                    feature.copy(point = newTrackedPoint)
+                  }
+                }),
+                30.seconds
+              )
             }
 
           imageBuffer.enqueue(
             TrackingSnapshot(hrImg, hrImg, newFeatures.getOrElse(Set.empty).toList)
           )
+
           if (imageBuffer.size > maxBufferSize) {
             imageBuffer.dequeue()
 
@@ -181,7 +194,10 @@ class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationL
           }
 
           newFeatures.foreach { nf =>
-            features.getAndUpdate(_.filterNot(x => nf.map(_.id).contains(x.id)) ++ nf)
+            features.getAndUpdate(
+              f =>
+                nf.filter(x => f.map(_.id).contains(x.id)) ++
+                f.filterNot(x => nf.map(_.id).contains(x.id)))
           }
 
           invalidationListener.invalidate(self)
@@ -189,9 +205,14 @@ class Tracker(camera: WebCamSource, prefSize: Dimension, fps: Int, invalidationL
       }
 
       cam.close()
+      currentImage.lazySet(null)
+      invalidationListener.invalidate(self)
     } catch {
       case e: Exception =>
         e.printStackTrace()
+        cam.close()
+        currentImage.lazySet(null)
+        invalidationListener.invalidate(self)
     }
   }
 }

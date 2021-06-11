@@ -16,6 +16,8 @@ import org.bytedeco.opencv.opencv_core.Point2f
 
 case class TrackingPlotPanel(model: WebcamModel) extends Pane {
 
+  var id: Int = 1
+
   class Timer extends AnimationTimer {
     override def handle(now: Long): Unit = draw()
   }
@@ -48,7 +50,8 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
               point.x < img.getWidth &&
               point.y >= 0 &&
               point.y < img.getHeight) {
-            val feature = Feature(UUID.randomUUID().hashCode(), Some(point), model.featureSize.get())
+            val feature = Feature(id, Some(point), model.featureSize.get())
+            id += 1
             model.tracker.get().addFeature(feature)
           }
         case e: MouseEvent if e.getButton == MouseButton.SECONDARY =>
@@ -59,14 +62,14 @@ case class TrackingPlotPanel(model: WebcamModel) extends Pane {
             ((e.getX - marginLeft) / ratio).toFloat,
             ((e.getY - marginTop) / ratio).toFloat
           )
-          val nonSelectedFeatures =
-            features.filterNot { f =>
+          val selectedFeatures =
+            features.filter { f =>
               f.point.exists(
                 p =>
                   point.x > (p.x - f.size / 2) && point.x < (p.x + f.size / 2) &&
                   point.y > (p.y - f.size / 2) && point.y < (p.y + f.size / 2))
             }
-          nonSelectedFeatures.foreach { f =>
+          selectedFeatures.foreach { f =>
             model.tracker.get().removeFeature(f.id)
           }
       }
