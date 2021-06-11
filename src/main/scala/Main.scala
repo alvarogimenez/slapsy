@@ -1,5 +1,6 @@
 import com.gomezgimenez.timelapse.tool.controller
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
+import com.gomezgimenez.timelapse.tool.settings.SettingsService
 import javafx.application.{ Application, Platform }
 import javafx.fxml.FXMLLoader
 import javafx.scene.Scene
@@ -30,6 +31,7 @@ class Main extends Application {
     primaryStage.setMinWidth(scene.getWidth)
     primaryStage.setMinHeight(scene.getHeight)
     primaryStage.setOnCloseRequest(_ => {
+      SettingsService.saveSettings(SettingsService.fromModel(webcamModel))
       Platform.exit()
     })
     primaryStage.show()

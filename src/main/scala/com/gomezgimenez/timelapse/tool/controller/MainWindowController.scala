@@ -8,6 +8,7 @@ import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.component.{ PlayerPlotPanel, TrackingPlotPanel }
 import com.gomezgimenez.timelapse.tool.model.{ CompressedImage, WebcamModel }
+import com.gomezgimenez.timelapse.tool.settings.SettingsService
 import com.gomezgimenez.timelapse.tool.threads.{ Tracker, TrackerListener }
 import javafx.application.Platform
 import javafx.beans.value.{ ChangeListener, ObservableValue }
@@ -61,6 +62,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     player_panel.setCenter(PlayerPlotPanel(model))
 
     menu_file_close.setOnAction(_ => {
+      SettingsService.saveSettings(SettingsService.fromModel(model))
       Platform.exit()
     })
 
@@ -215,6 +217,10 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
         model.outputDirectory.set(selectedFile.getPath)
       }
     })
+
+    SettingsService.loadSettings.foreach { settings =>
+      model.updateFromSettings(settings)
+    }
     runTracking()
   }
 

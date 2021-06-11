@@ -3,9 +3,11 @@ package com.gomezgimenez.timelapse.tool.model
 import java.awt.image.BufferedImage
 
 import com.gomezgimenez.timelapse.tool.controller._
+import com.gomezgimenez.timelapse.tool.settings.{ Settings, SettingsCustomResolution, SettingsFixedResolution }
 import com.gomezgimenez.timelapse.tool.threads.Tracker
 import javafx.beans.property._
 import javafx.collections.FXCollections
+import scala.jdk.CollectionConverters._
 
 case class WebcamModel() {
   val tracker: ObjectProperty[Tracker] = new SimpleObjectProperty[Tracker]()
@@ -29,4 +31,19 @@ case class WebcamModel() {
   val currentFrame: SimpleIntegerProperty                          = new SimpleIntegerProperty(0)
   val fps: SimpleIntegerProperty                                   = new SimpleIntegerProperty(24)
   val fpsObj: ObjectProperty[Integer]                              = fps.asObject()
+
+  def updateFromSettings(settings: Settings): Unit =
+    settings.trackingSettings.foreach { trackingSettings =>
+      availableCameras.get.asScala.find(_.name == trackingSettings.camera).foreach { c =>
+        selectedCamera.set(c)
+      }
+      trackingSettings.resolution match {
+        case c: SettingsCustomResolution =>
+          selectedResolution.set(CustomResolution)
+          customResolutionWidth.set(c.width)
+          customResolutionHeight.set(c.height)
+        case f: SettingsFixedResolution if availableResolutions.contains(FixedResolution(f.width, f.height)) =>
+          selectedResolution.set(FixedResolution(f.width, f.height))
+      }
+    }
 }

@@ -13,7 +13,7 @@ lazy val `slapsy` = (project in file("."))
       scalaTest % Test,
       webcamCapture,
       javacv
-    ) ++ javaCvLibs,
+    ) ++ javaCvLibs ++ circeDependencies,
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case _                                   => MergeStrategy.first
