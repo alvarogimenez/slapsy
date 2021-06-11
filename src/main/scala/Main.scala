@@ -1,6 +1,6 @@
 import com.gomezgimenez.timelapse.tool.controller
 import com.gomezgimenez.timelapse.tool.model.WebcamModel
-import javafx.application.{Application, Platform}
+import javafx.application.{ Application, Platform }
 import javafx.fxml.FXMLLoader
 import javafx.scene.Scene
 import javafx.scene.layout.BorderPane
@@ -9,9 +9,8 @@ import org.bytedeco.javacpp.Loader
 import org.bytedeco.opencv.opencv_java
 
 object Main {
-  def main(args: Array[String]): Unit = {
-    Application.launch(classOf[Main], args:_*)
-  }
+  def main(args: Array[String]): Unit =
+    Application.launch(classOf[Main], args: _*)
 }
 
 class Main extends Application {
@@ -25,9 +24,9 @@ class Main extends Application {
     loader.setLocation(Thread.currentThread.getContextClassLoader.getResource("ui/view/MainWindow.fxml"))
 
     val rootLayout = loader.load().asInstanceOf[BorderPane]
-    val scene = new Scene(rootLayout, 1024, 768)
+    val scene      = new Scene(rootLayout, 1024, 768)
     primaryStage.setScene(scene)
-    primaryStage.setTitle("SLA Printer Timelapse Tool - Álvaro Gómez Giménez")
+    primaryStage.setTitle("Slapsy - Álvaro Gómez Giménez")
     primaryStage.setMinWidth(scene.getWidth)
     primaryStage.setMinHeight(scene.getHeight)
     primaryStage.setOnCloseRequest(_ => {
@@ -36,5 +35,3 @@ class Main extends Application {
     primaryStage.show()
   }
 }
-
-

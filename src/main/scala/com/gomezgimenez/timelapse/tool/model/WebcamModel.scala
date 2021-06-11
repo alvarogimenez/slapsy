@@ -22,6 +22,7 @@ case class WebcamModel() {
   val exportFilePrefix: SimpleStringProperty                       = new SimpleStringProperty("Frame_")
   val customResolutionWidth: SimpleIntegerProperty                 = new SimpleIntegerProperty(1920)
   val customResolutionHeight: SimpleIntegerProperty                = new SimpleIntegerProperty(1080)
+  val outputDirectory: SimpleStringProperty                        = new SimpleStringProperty("target")
 
   val playerImage: SimpleObjectProperty[BufferedImage]             = new SimpleObjectProperty[BufferedImage]()
   val recordingBuffer: SimpleObjectProperty[List[CompressedImage]] = new SimpleObjectProperty[List[CompressedImage]](List.empty)
