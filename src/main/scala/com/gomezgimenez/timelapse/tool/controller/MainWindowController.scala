@@ -8,6 +8,7 @@ import com.github.sarxos.webcam.Webcam
 import com.gomezgimenez.timelapse.tool.Util
 import com.gomezgimenez.timelapse.tool.component.{ PlayerPlotPanel, TrackingPlotPanel }
 import com.gomezgimenez.timelapse.tool.model.{ CompressedImage, WebcamModel }
+import com.gomezgimenez.timelapse.tool.settings.SettingsService
 import com.gomezgimenez.timelapse.tool.threads.{ Tracker, TrackerListener }
 import javafx.application.Platform
 import javafx.beans.value.{ ChangeListener, ObservableValue }
@@ -15,25 +16,21 @@ import javafx.concurrent.Task
 import javafx.fxml.FXML
 import javafx.scene.control.{ SpinnerValueFactory, _ }
 import javafx.scene.layout.BorderPane
-import javafx.stage.Stage
+import javafx.stage.{ DirectoryChooser, Stage }
 import javafx.util.converter.NumberStringConverter
 import javax.imageio.ImageIO
 
 import scala.jdk.CollectionConverters._
 
 case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
-  @FXML var main_panel: BorderPane                           = _
-  @FXML var player_panel: BorderPane                         = _
+  @FXML var main_panel: BorderPane   = _
+  @FXML var player_panel: BorderPane = _
+
+  // Tracker Tab
   @FXML var feature_size_spinner: Spinner[Integer]           = _
   @FXML var combo_camera: ComboBox[WebCamSource]             = _
   @FXML var combo_resolution: ComboBox[Resolution]           = _
   @FXML var feature_list: ListView[Feature]                  = _
-  @FXML var play_button: Button                              = _
-  @FXML var stop_button: Button                              = _
-  @FXML var play_slider: Slider                              = _
-  @FXML var current_frame_label: Label                       = _
-  @FXML var max_frame_count_label: Label                     = _
-  @FXML var fps_spinner: Spinner[Integer]                    = _
   @FXML var restart_capture_button: Button                   = _
   @FXML var stop_capture_button: Button                      = _
   @FXML var width_input: TextField                           = _
@@ -41,9 +38,19 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
   @FXML var export_file_prefix_input: TextField              = _
   @FXML var export_file_type_combo: ComboBox[ExportFileType] = _
   @FXML var current_com_speed_label: Label                   = _
-  @FXML var max_com_speed_label: Label                       = _
   @FXML var current_fps_label: Label                         = _
 
+  // Player Tab
+  @FXML var play_button: Button               = _
+  @FXML var stop_button: Button               = _
+  @FXML var play_slider: Slider               = _
+  @FXML var current_frame_label: Label        = _
+  @FXML var max_frame_count_label: Label      = _
+  @FXML var fps_spinner: Spinner[Integer]     = _
+  @FXML var output_directory_input: TextField = _
+  @FXML var output_directory_button: Button   = _
+
+  // Menu Items
   @FXML var menu_file_close: MenuItem = _
   @FXML var menu_help_about: MenuItem = _
 
@@ -55,6 +62,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
     player_panel.setCenter(PlayerPlotPanel(model))
 
     menu_file_close.setOnAction(_ => {
+      SettingsService.saveSettings(SettingsService.fromModel(model))
       Platform.exit()
     })
 
@@ -146,6 +154,9 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
         }
       })
 
+    max_frame_count_label.setText("0")
+
+    play_slider.setMin(0)
     play_slider.setMax(0)
     play_slider.valueProperty().bindBidirectional(model.currentFrame)
 
@@ -192,6 +203,24 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
       .textProperty()
       .bindBidirectional(model.exportFilePrefix)
 
+    output_directory_input
+      .textProperty()
+      .bindBidirectional(model.outputDirectory)
+
+    output_directory_button.setOnAction(_ => {
+      val file        = new File(model.outputDirectory.get)
+      val fileChooser = new DirectoryChooser
+      fileChooser.setInitialDirectory(file)
+      fileChooser.setTitle("Select an ouput directory...")
+      val selectedFile = fileChooser.showDialog(primaryStage)
+      if (selectedFile != null) {
+        model.outputDirectory.set(selectedFile.getPath)
+      }
+    })
+
+    SettingsService.loadSettings.foreach { settings =>
+      model.updateFromSettings(settings)
+    }
     runTracking()
   }
 
@@ -241,7 +270,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
               img,
               fileType,
               new File(
-                "target" + "/" + filePrefix + s"$frameNr.${fileType.toLowerCase}"
+                model.outputDirectory.get + "/" + filePrefix + s"$frameNr.${fileType.toLowerCase}"
               )
             )
             model.recordingBuffer.set(

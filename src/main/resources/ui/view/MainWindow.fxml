@@ -61,6 +61,10 @@
                                             <TextField fx:id="export_file_prefix_input" layoutX="126.0" layoutY="14.0" prefHeight="25.0" prefWidth="100.0" />
                                             <Label layoutX="12.0" layoutY="51.0" text="Export file type:" />
                                             <ComboBox fx:id="export_file_type_combo" layoutX="126.0" layoutY="47.0" prefWidth="100.0" />
+                                          <Label layoutX="12.0" layoutY="83.0" text="Output Directory:" />
+                                          <TextField fx:id="output_directory_input" editable="false" layoutX="12.0" layoutY="108.0" prefHeight="25.0" prefWidth="176.0" />
+                                          <Button fx:id="output_directory_button" layoutX="194.0" layoutY="108.0" mnemonicParsing="false" prefHeight="25.0" prefWidth="30.0" style="-fx-background-image: url('assets/icon/Open.png');-fx-background-size:20px;-fx-background-repeat: no-repeat;-fx-background-position: center;" />
+                                          <Button fx:id="output_advanced_button" layoutX="131.0" layoutY="143.0" mnemonicParsing="false" prefHeight="25.0" prefWidth="93.0" style="-fx-background-image: url('assets/icon/Settings.png');-fx-background-size:20px;-fx-background-repeat: no-repeat;-fx-background-position: 5 center,0 center;-fx-padding:0 0 0 15" text="Advanced" />
                                         </children>
                                     </AnchorPane>
                                 </content>
@@ -82,7 +86,7 @@
                            <bottom>
                               <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                                  <children>
-                                    <TitledPane alignment="CENTER" animated="false" collapsible="false" contentDisplay="TOP" minHeight="120.0" prefHeight="120.0" prefWidth="254.0" text="Info">
+                                    <TitledPane alignment="CENTER" animated="false" collapsible="false" contentDisplay="TOP" minHeight="90.0" prefHeight="90.0" prefWidth="254.0" text="Info">
                                       <content>
                                         <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="74.0" prefWidth="252.0">
                                              <children>
@@ -94,12 +98,6 @@
                                                    </font>
                                                 </Label>
                                                 <Label fx:id="current_com_speed_label" layoutX="131.0" layoutY="37.0" text="--">
-                                                   <font>
-                                                      <Font name="System Bold" size="12.0" />
-                                                   </font>
-                                                </Label>
-                                                <Label layoutX="14.0" layoutY="61.0" text="COM Max. Speed:" />
-                                                <Label fx:id="max_com_speed_label" layoutX="131.0" layoutY="61.0" text="--">
                                                    <font>
                                                       <Font name="System Bold" size="12.0" />
                                                    </font>
@@ -130,10 +128,10 @@
                            <center>
                               <HBox alignment="CENTER" prefHeight="48.0" prefWidth="846.0" spacing="5.0">
                                  <children>
-                                               <Label text="FPS" />
-                                               <Spinner fx:id="fps_spinner" editable="true" prefHeight="25.0" prefWidth="100.0" />
-                                    <Button fx:id="stop_button" mnemonicParsing="false" prefHeight="30.0" prefWidth="30.0" style="-fx-graphic: url('assets/icon/Stop.png');" />
-                                    <Button fx:id="play_button" mnemonicParsing="false" prefHeight="30.0" prefWidth="30.0" style="-fx-graphic: url('assets/icon/Play.png');" />
+                                   <Label text="FPS" />
+                                   <Spinner fx:id="fps_spinner" editable="true" prefHeight="25.0" prefWidth="100.0" />
+                                    <Button fx:id="stop_button" mnemonicParsing="false" prefHeight="30.0" prefWidth="30.0" style="-fx-background-image: url('assets/icon/Stop.png');-fx-background-size:20px;-fx-background-repeat: no-repeat;-fx-background-position: center;" />
+                                    <Button fx:id="play_button" mnemonicParsing="false" prefHeight="30.0" prefWidth="30.0" style="-fx-background-image: url('assets/icon/Play.png');                                             -fx-background-size:20px;                                             -fx-background-repeat: no-repeat;                                             -fx-background-position: center;" />
                                  </children>
                               </HBox>
                            </center>
@@ -149,7 +147,7 @@
                                     <Label fx:id="current_frame_label" alignment="CENTER" prefHeight="17.0" prefWidth="35.0" text="0" textAlignment="CENTER" BorderPane.alignment="CENTER" />
                                  </left>
                                  <right>
-                                    <Label fx:id="max_frame_count_label" alignment="CENTER" prefHeight="17.0" prefWidth="35.0" text="100" textAlignment="CENTER" BorderPane.alignment="CENTER" />
+                                    <Label fx:id="max_frame_count_label" alignment="CENTER" prefHeight="17.0" prefWidth="35.0" text="0" textAlignment="CENTER" BorderPane.alignment="CENTER" />
                                  </right>
                               </BorderPane>
                            </top>

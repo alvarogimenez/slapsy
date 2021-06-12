@@ -2,6 +2,7 @@ import sbt._
 
 object Dependencies {
   lazy val javacppVersion = "1.5.4"
+  lazy val circeVersion   = "0.14.1"
 
   lazy val scalaTest     = "org.scalatest"     %% "scalatest"     % "3.2.2"
   lazy val json4s        = "org.json4s"        %% "json4s-native" % "3.7.0-M7"
@@ -23,4 +24,11 @@ object Dependencies {
         "org.bytedeco" % lib % s"$ver-$javacppVersion" classifier platform
       )
   }
+
+  lazy val circeDependencies = Seq(
+    "io.circe" %% "circe-core",
+    "io.circe" %% "circe-generic",
+    "io.circe" %% "circe-parser",
+    "io.circe" %% "circe-generic-extras"
+  ).map(_ % circeVersion)
 }
