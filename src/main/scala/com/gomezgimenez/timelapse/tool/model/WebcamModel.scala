@@ -45,5 +45,11 @@ case class WebcamModel() {
         case f: SettingsFixedResolution if availableResolutions.contains(FixedResolution(f.width, f.height)) =>
           selectedResolution.set(FixedResolution(f.width, f.height))
       }
+      featureSize.set(trackingSettings.featureSize)
+      exportFilePrefix.set(trackingSettings.exportFilePrefix)
+      availableExportFileTypes.get.asScala.find(_.code == trackingSettings.exportFileType).foreach { fileType =>
+        selectedExportFileType.set(fileType)
+      }
+      outputDirectory.set(trackingSettings.exportDirectory)
     }
 }

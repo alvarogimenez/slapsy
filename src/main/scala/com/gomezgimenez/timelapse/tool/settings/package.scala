@@ -1,7 +1,6 @@
 package com.gomezgimenez.timelapse.tool
 
 package object settings {
-  import com.gomezgimenez.timelapse.tool.controller.Resolution
 
   case class Settings(
       version: String,
@@ -15,7 +14,11 @@ package object settings {
 
   case class TrackingSettings(
       camera: String,
-      resolution: SettingsResolution
+      resolution: SettingsResolution,
+      featureSize: Int,
+      exportFilePrefix: String,
+      exportFileType: String,
+      exportDirectory: String
   )
 
   case class PlayerSettings()

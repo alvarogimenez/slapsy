@@ -270,7 +270,7 @@ case class MainWindowController(primaryStage: Stage, model: WebcamModel) {
               img,
               fileType,
               new File(
-                "target" + "/" + filePrefix + s"$frameNr.${fileType.toLowerCase}"
+                model.outputDirectory.get + "/" + filePrefix + s"$frameNr.${fileType.toLowerCase}"
               )
             )
             model.recordingBuffer.set(

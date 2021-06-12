@@ -57,7 +57,11 @@ object SettingsService {
               )
             case FixedResolution(width, height) =>
               SettingsFixedResolution(width, height)
-          }
+          },
+          featureSize = model.featureSize.get,
+          exportFilePrefix = model.exportFilePrefix.get,
+          exportFileType = model.selectedExportFileType.get.code,
+          exportDirectory = model.outputDirectory.get
         )
       )
     )
